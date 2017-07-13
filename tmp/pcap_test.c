@@ -1,9 +1,21 @@
 #include <pcap.h>
+#include <arpa/inet.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 
 #define DUMP_OFFSET 16
+#define MAC_DST_OFFSET 0
+#define MAC_SRC_OFFSET 6
+#define IS_DST 0
+#define IS_SRC 1 
+#define ETHERTYPE_OFFSET 12
+#define PAYLOAD_OFFSET 
+#define IP_SRC_OFFSET
+#define IP_DST_OFFSET
+#define TCP_SRC_PORT
+#define TCP_DST_PORT
 
 void hexdump (const u_char *packet, bpf_u_int32 len)
 {
@@ -51,9 +63,47 @@ void hexdump (const u_char *packet, bpf_u_int32 len)
   }
 }
 
-void parse_packet (const u_char* packet)
+void print_mac (char* mac, int t)
 {
+  /* TODO: make it enum */
+  int i = 0;
+  int len = 6;
 
+  if (t == IS_SRC) 
+    printf ("MAC_ADDR_SRC = ");
+  else if (t == IS_DST) 
+    printf ("MAC_ADDR_DST = ");
+  else
+  {
+    printf ("FUCK ERROR\n");
+    exit (-1);
+  }
+    
+  for (i = 0; i < len; i++)
+    printf ("%02X:", mac[i] & 0xff);
+  printf ("\x08 ");
+  puts ("");
+}
+
+void parse_eth_packet (const u_char* packet)
+{
+  char mac_dst[6]; 
+  char mac_src[6]; 
+  short eth_type;
+
+  /* get mac destination address */
+  memcpy (mac_dst, packet + MAC_DST_OFFSET, 6);
+
+  /* get mac source address */
+  memcpy (mac_src, packet + MAC_SRC_OFFSET, 6);
+
+  /* get ethertype address */
+  memcpy ((char*)&eth_type, packet + ETHERTYPE_OFFSET, 2);
+  eth_type = ntohs (eth_type);
+
+  print_mac (mac_dst, IS_DST);
+  print_mac (mac_src, IS_SRC);
+  printf("%d\n", eth_type);
 }
 
 int main(int argc, char *argv[])
@@ -103,9 +153,14 @@ int main(int argc, char *argv[])
     /* Print its length */
     //printf("res -> %d\n", res);
     printf("Jacked a packet with length of [%x]\n", header->caplen);
-    hexdump (packet, header->caplen); 
-    /* And close the session */
+
+    if (res > 0)
+    {
+      parse_eth_packet (packet);
+      hexdump (packet, header->caplen); 
+    }
   }
+  /* And close the session */
   pcap_close(handle);
   return(0);
 }
